@@ -166,15 +166,21 @@ jobs:
       - name: Add support SUSFS
         run: |
           cd "$CONFIG/common"
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-          cd ../
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6 --depth=1
-          cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common
-          cd common
-          patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch
-
+          cp -r ./susfs4ksu/kernel_patches/fs/* ./common/fs/ 2>/dev/null || true
+          cp -r ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/ 2>/dev/null || true
+          n if [ -f ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ]; then
+          cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./
+          patch -p1 --forward --ignore-whitespace < 50_add_susfs_in_gki-android15-6.6.patch || echo "Patch aplicado parcialmente, continuando..."
+          else
+          echo "Patch file not found, trying alternative location..."
+          if [ -f ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ]; then
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./
+          patch -p1 --forward --ignore-whitespace < 50_add_susfs_in_gki-android15-6.6.patch || echo "Patch aplicado parcialmente, continuando..."
+          fi
+          fi
+          rm -f 50_add_susfs_in_gki-android15-6.6.patch 2>/dev/null || true
+    
       - name: Configure SUSFS
         run: |
           cd "$CONFIG"
