@@ -166,21 +166,33 @@ jobs:
       - name: Add support SUSFS
         run: |
           cd "$CONFIG/common"
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+          cd ../
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6 --depth=1
-          cp -r ./susfs4ksu/kernel_patches/fs/* ./common/fs/ 2>/dev/null || true
-          cp -r ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/ 2>/dev/null || true
-          n if [ -f ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ]; then
-          cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./
-          patch -p1 --forward --ignore-whitespace < 50_add_susfs_in_gki-android15-6.6.patch || echo "Patch aplicado parcialmente, continuando..."
-          else
-          echo "Patch file not found, trying alternative location..."
-          if [ -f ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ]; then
-          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./
-          patch -p1 --forward --ignore-whitespace < 50_add_susfs_in_gki-android15-6.6.patch || echo "Patch aplicado parcialmente, continuando..."
-          fi
-          fi
-          rm -f 50_add_susfs_in_gki-android15-6.6.patch 2>/dev/null || true
+          cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common
+          cd common
     
+          # Aplicar el patch con opciones para resolver conflictos
+          patch -p1 --verbose --reject-file=- < 50_add_susfs_in_gki-android15-6.6.patch ||        true
+    
+          # Si hay hunks fallidos, aplicar manualmente los más problemáticos
+          if [ -f fs/proc/base.c.rej ]; then
+          echo "Aplicando manualmente parches fallidos en fs/proc/base.c..."
+          # Aplicar manualmente los cambios necesarios para fs/proc/base.c
+          # Esto es un workaround para el hunk que falla en la línea 100
+          sed -i '100i#ifdef CONFIG_KSU_SUSFS' fs/proc/base.c
+          sed -i '101i#include <linux/susfs.h>' fs/proc/base.c
+          sed -i '102i#endif' fs/proc/base.c
+          fi
+    
+          # Verificar que los archivos críticos estén presentes
+          if [ ! -f fs/susfs.c ]; then
+          echo "Error: fs/susfs.c no encontrado después de aplicar parches"
+          exit 1
+          fi
+
       - name: Configure SUSFS
         run: |
           cd "$CONFIG"
